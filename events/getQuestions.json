@@ -1,0 +1,19 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /rb/questions",
+  "rawPath": "",
+  "rawQueryString": "lastEvaluatedKey=18&pageSize=5&examId=aws-dva-c02",
+  "queryStringParameters": {
+    "lastEvaluatedKey": 18,
+    "pageSize": 5,
+    "examId": "aws-dva-c02"
+  },
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/rb/questions",
+      "protocol": "HTTP/1.1"
+    }
+  },
+  "isBase64Encoded": false
+}
