@@ -52,7 +52,7 @@ jobs:
           distribution: 'adopt'
 
       - name: Build and Test with Maven
-        run: mvn -B verify --file pom.xml
+        run: mvn clean test
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
