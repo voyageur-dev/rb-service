@@ -9,6 +9,8 @@ jobs:
     outputs:
       dir: ${{ steps.find-pom.outputs.dir }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Find working directory with pom.xml
         id: find-pom
         run: |

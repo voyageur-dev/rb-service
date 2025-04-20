@@ -31,6 +31,8 @@ jobs:
             echo "environment=int" >> $GITHUB_OUTPUT
           fi
 
+      - uses: actions/checkout@v4
+
       - name: Find working directory with pom.xml
         id: find-pom
         run: |
