@@ -50,7 +50,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ${{ needs.find-pom.outputs.dir }}
+        working-directory: ${{ needs.set-environment.outputs.dir }}
     steps:
       - uses: actions/checkout@v4
 
