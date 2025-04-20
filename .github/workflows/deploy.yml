@@ -21,6 +21,7 @@ jobs:
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       dir: ${{ steps.find-pom.outputs.dir }}
+      repo: ${{ steps.get-repo-name.outputs.repo }}
     steps:
       - name: Set environment
         id: set-env
@@ -38,10 +39,16 @@ jobs:
         run: |
           echo "dir=$(dirname $(find . -name "pom.xml" | head -n 1))" >> $GITHUB_OUTPUT
 
+      - name: Get repo name
+        id: get-repo-name
+        run: |
+          echo "repo=$(basename "${{ github.repository }}")" >> $GITHUB_OUTPUT
+
       - name: Display env
         run: |
           echo "Selected environment: ${{ steps.set-env.outputs.environment }}"
           echo "pom.xml located in: ${{ steps.find-pom.outputs.dir }}"
+          echo "Repository name: ${{ steps.get-repo-name.outputs.repo }}"
 
   deploy:
     needs: set-environment
@@ -71,10 +78,10 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Zip the code
-        run: zip -r ${{ github.repository }}-${{ needs.set-environment.outputs.environment }}.zip . -x "*.git*" "target/*" ".github/*"
+        run: zip -r ${{needs.set-environment.outputs.repo}}-${{ needs.set-environment.outputs.environment }}.zip . -x "*.git*" "target/*" ".github/*"
 
       - name: Upload to S3
-        run: aws s3 cp function.zip s3://${{ vars.CODEBASE_BUCKET }}-${{ needs.set-environment.outputs.environment }}/${{ github.repository }}-${{ needs.set-environment.outputs.environment }}.zip
+        run: aws s3 cp function.zip s3://${{ vars.CODEBASE_BUCKET }}-${{ needs.set-environment.outputs.environment }}/${{needs.set-environment.outputs.repo}}-${{ needs.set-environment.outputs.environment }}.zip
 
       - name: Deploy to lambda
         id: deploy-lambda
@@ -83,4 +90,4 @@ jobs:
           aws lambda update-function-code \
             --function-name ${{ github.repository }}-${{ needs.set-environment.outputs.environment }} \
             --s3-bucket ${{ vars.CODEBASE_BUCKET }}-${{ needs.set-environment.outputs.environment }} \
-            --s3-key ${{ github.repository }}-${{ needs.set-environment.outputs.environment }}.zip
+            --s3-key ${{needs.set-environment.outputs.repo}}-${{ needs.set-environment.outputs.environment }}.zip
