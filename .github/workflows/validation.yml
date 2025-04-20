@@ -1,0 +1,40 @@
+name: Validation
+
+on:
+  pull_request:
+
+jobs:
+  set-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      dir: ${{ steps.find-pom.outputs.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find working directory with pom.xml
+        id: find-pom
+        run: |
+          echo "dir=$(dirname $(find . -name "pom.xml" | head -n 1))" >> $GITHUB_OUTPUT
+
+      - name: Display env
+        run: |
+          echo "pom.xml located in: ${{ steps.find-pom.outputs.dir }}"
+
+  validate:
+    needs: set-environment
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ needs.set-environment.outputs.dir }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: '17'
+
+      - name: Build and Test with Maven
+        run: mvn clean test
