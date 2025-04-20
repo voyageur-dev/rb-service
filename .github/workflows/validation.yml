@@ -21,6 +21,7 @@ jobs:
           echo "pom.xml located in: ${{ steps.find-pom.outputs.dir }}"
 
   validate:
+    needs: set-environment
     runs-on: ubuntu-latest
     defaults:
       run:
