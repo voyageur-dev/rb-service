@@ -25,12 +25,12 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private static final String GET_QUESTIONS_PATH = "GET /rb/questions";
     private static final String GET_EXAM_METADATA = "GET /rb/{examId}/metadata";
 
-    private static final String QUESTIONS_TABLE = "rb-exam-questions-int";
-
+    private final String questionsTableName;
     private final DynamoDbClient client;
     private final Gson gson;
 
     public App() {
+        this.questionsTableName = System.getenv("QUESTIONS_TABLE_NAME");
         this.client = DynamoDbClient.create();
         this.gson = new GsonBuilder().create();
     }
@@ -60,7 +60,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
             do {
                 QueryRequest.Builder queryBuilder = QueryRequest.builder()
-                        .tableName(QUESTIONS_TABLE)
+                        .tableName(questionsTableName)
                         .keyConditionExpression("exam_id = :exam_id")
                         .expressionAttributeValues(Map.of(":exam_id", AttributeValue.builder().s(examId).build()))
                         .projectionExpression("question_id");
@@ -108,7 +108,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             exclusiveStartKey.put("question_id", AttributeValue.builder().n(String.valueOf(lastEvaluatedKey)).build());
 
             QueryRequest queryRequest = QueryRequest.builder()
-                    .tableName(QUESTIONS_TABLE)
+                    .tableName(questionsTableName)
                     .keyConditionExpression("exam_id = :exam_id")
                     .expressionAttributeValues(expressionAttributeValues)
                     .limit(pageSize)
