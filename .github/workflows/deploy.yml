@@ -67,8 +67,8 @@ jobs:
           java-version: '17'
           distribution: 'adopt'
 
-      - name: Build and Test with Maven
-        run: mvn clean test
+      - name: Build and Package with Maven
+        run: mvn clean package
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -77,11 +77,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_INFRA_ADMIN_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Zip the code
-        run: zip -r function.zip . -x "*.git*" "target/*" ".github/*"
-
       - name: Upload to S3
-        run: aws s3 cp function.zip s3://${{ vars.CODEBASE_BUCKET }}-${{ needs.set-environment.outputs.environment }}/${{needs.set-environment.outputs.repo}}-${{ needs.set-environment.outputs.environment }}.zip
+        run: aws s3 cp /target/${{needs.set-environment.outputs.repo}}-1.0.jar s3://${{ vars.CODEBASE_BUCKET }}-${{ needs.set-environment.outputs.environment }}/${{needs.set-environment.outputs.repo}}-${{ needs.set-environment.outputs.environment }}.zip
 
       - name: Deploy to lambda
         id: deploy-lambda
