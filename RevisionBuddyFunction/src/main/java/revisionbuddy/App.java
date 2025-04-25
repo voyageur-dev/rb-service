@@ -84,9 +84,11 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
                     .withBody(gson.toJson(new GetMetadataResponse(metadata)))
                     .build();
         } catch (Exception e) {
+            System.out.println(e.getMessage());
+
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(500)
-                    .withBody("Error getting metadata: " + e.getMessage())
+                    .withBody("Error getting metadata")
                     .build();
         }
     }
@@ -123,9 +125,11 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
                     .withBody(gson.toJson(getQuestionsResponse))
                     .build();
         } catch (Exception e) {
+            System.out.println(e.getMessage());
+
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(500)
-                    .withBody("Error getting questions: " + e.getMessage())
+                    .withBody("Error getting questions")
                     .build();
         }
     }
@@ -165,9 +169,11 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
                     .withBody(gson.toJson(getBookmarksResponse))
                     .build();
         } catch (Exception e) {
+            System.out.println(e.getMessage());
+
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(500)
-                    .withBody("Error getting bookmarks: " + e.getMessage())
+                    .withBody("Error getting bookmarks")
                     .build();
         }
     }
@@ -199,9 +205,11 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
                     .withStatusCode(201)
                     .build();
         } catch (Exception e) {
+            System.out.println(e.getMessage());
+
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(500)
-                    .withBody("Error creating bookmarks: " + e.getMessage())
+                    .withBody("Error creating bookmarks")
                     .build();
         }
     }
