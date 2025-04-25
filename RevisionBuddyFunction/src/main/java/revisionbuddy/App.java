@@ -1,8 +1,11 @@
 package revisionbuddy;
 
+import java.text.MessageFormat;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 
+import com.google.gson.JsonObject;
 import revisionbuddy.models.GetBookmarksResponse;
 import revisionbuddy.models.GetMetadataResponse;
 import revisionbuddy.models.GetQuestionsResponse;
@@ -14,10 +17,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
-import software.amazon.awssdk.services.dynamodb.model.Select;
+import software.amazon.awssdk.services.dynamodb.model.*;
 
 /**
  * Handler for requests to Lambda function.
@@ -27,6 +27,8 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private static final String GET_QUESTIONS_PATH = "GET /rb/questions";
     private static final String GET_BOOKMARKS_PATH = "GET/rb/bookmarks";
     private static final String GET_EXAM_METADATA = "GET /rb/{examId}/metadata";
+
+    private static final String POST_BOOKMARKS_PATH = "POST /rb/bookmarks";
 
     private final String questionsTableName;
     private final String bookmarkTableName;
@@ -51,6 +53,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             case GET_QUESTIONS_PATH -> getQuestions(event);
             case GET_BOOKMARKS_PATH -> getBookmarks(event);
             case GET_EXAM_METADATA -> getExamMetadata(event);
+            case POST_BOOKMARKS_PATH -> createBookmarks(event);
             default -> APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(404)
                     .withBody("Path Not Found")
@@ -165,6 +168,40 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(500)
                     .withBody("Error getting bookmarks: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    private APIGatewayV2HTTPResponse createBookmarks(APIGatewayV2HTTPEvent event) {
+        try {
+
+            String body = event.getBody();
+            JsonObject jsonBody = gson.fromJson(body, JsonObject.class);
+            String examId = jsonBody.get("examId").getAsString();
+            String questionId = jsonBody.get("questionId").getAsString();
+
+            Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
+            String userId = claims.get("sub");
+
+            Map<String, AttributeValue> item = new HashMap<>();
+            item.put("user_dd", AttributeValue.fromS(userId));
+            item.put("exam_question_key", AttributeValue.fromS(MessageFormat.format("{0}#{1}", examId, questionId)));
+            item.put("created_at", AttributeValue.fromS(Instant.now().toString()));
+
+            PutItemRequest request = PutItemRequest.builder()
+                    .tableName(bookmarkTableName)
+                    .item(item)
+                    .build();
+
+            client.putItem(request);
+
+            return APIGatewayV2HTTPResponse.builder()
+                    .withStatusCode(201)
+                    .build();
+        } catch (Exception e) {
+            return APIGatewayV2HTTPResponse.builder()
+                    .withStatusCode(500)
+                    .withBody("Error creating bookmarks: " + e.getMessage())
                     .build();
         }
     }
