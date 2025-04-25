@@ -17,6 +17,7 @@ import com.google.gson.GsonBuilder;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
+import software.amazon.awssdk.services.dynamodb.model.Select;
 
 /**
  * Handler for requests to Lambda function.
@@ -29,12 +30,15 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     private final String questionsTableName;
     private final String bookmarkTableName;
+    private final List<String> examIds;
+
     private final DynamoDbClient client;
     private final Gson gson;
 
     public App() {
         this.questionsTableName = System.getenv("QUESTIONS_TABLE_NAME");
         this.bookmarkTableName = System.getenv("BOOKMARK_TABLE_NAME");
+        this.examIds = List.of(System.getenv("EXAM_IDS").split(","));
         this.client = DynamoDbClient.create();
         this.gson = new GsonBuilder().create();
     }
@@ -57,38 +61,24 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private APIGatewayV2HTTPResponse getExamMetadata(APIGatewayV2HTTPEvent event) {
         try {
             Map<String, String> pathParams = event.getPathParameters();
-            String examId = pathParams.getOrDefault("examId", "aws-dva-c02");
 
-            List<Integer> questionIds = new ArrayList<>();
+            List<GetMetadataResponse.Metadata> metadata = new ArrayList<>();
 
-            Map<String, AttributeValue> exclusiveStartKey = null;
-
-            do {
-                QueryRequest.Builder queryBuilder = QueryRequest.builder()
+            for (String examId : examIds) {
+                QueryRequest queryRequest = QueryRequest.builder()
                         .tableName(questionsTableName)
-                        .keyConditionExpression("exam_id = :exam_id")
-                        .expressionAttributeValues(Map.of(":exam_id", AttributeValue.builder().s(examId).build()))
-                        .projectionExpression("question_id");
+                        .keyConditionExpression("exam_id" + " = :examId")
+                        .expressionAttributeValues(Map.of(":examId", AttributeValue.fromS(examId)))
+                        .select(Select.COUNT)
+                        .build();
 
-                if (exclusiveStartKey != null) {
-                    queryBuilder.exclusiveStartKey(exclusiveStartKey);
-                }
-
-                QueryResponse response = client.query(queryBuilder.build());
-
-                for (Map<String, AttributeValue> item : response.items()) {
-                    int questionId = Integer.parseInt(item.get("question_id").n());
-                    questionIds.add(questionId);
-                }
-
-                exclusiveStartKey = response.lastEvaluatedKey();
-
-            } while (exclusiveStartKey != null && !exclusiveStartKey.isEmpty());
-
+                QueryResponse response = client.query(queryRequest);
+                metadata.add(new GetMetadataResponse.Metadata(examId, response.count()));
+            }
 
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(200)
-                    .withBody(gson.toJson(new GetMetadataResponse(questionIds)))
+                    .withBody(gson.toJson(new GetMetadataResponse(metadata)))
                     .build();
         } catch (Exception e) {
             return APIGatewayV2HTTPResponse.builder()
@@ -105,12 +95,10 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             int lastEvaluatedKey = Integer.parseInt(queryParams.getOrDefault("lastEvaluatedKey", "-1"));
             int pageSize = Integer.parseInt(queryParams.getOrDefault("pageSize", "10"));
 
-            Map<String, AttributeValue> expressionAttributeValues = Map.of(":exam_id", AttributeValue.builder().s(examId).build());
-
             QueryRequest.Builder builder = QueryRequest.builder()
                     .tableName(questionsTableName)
-                    .keyConditionExpression("exam_id = :exam_id")
-                    .expressionAttributeValues(expressionAttributeValues)
+                    .keyConditionExpression("exam_id = :examId")
+                    .expressionAttributeValues(Map.of(":examId", AttributeValue.fromS(examId)))
                     .limit(pageSize);
 
             if (lastEvaluatedKey > -1) {
@@ -149,17 +137,15 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
             String lastEvaluatedKey = queryParams.getOrDefault("lastEvaluatedKey", null);
 
-            Map<String, AttributeValue> expressionAttributeValues = Map.of(":user_id", AttributeValue.builder().s(userId).build());
-
             QueryRequest.Builder builder = QueryRequest.builder()
                     .tableName(bookmarkTableName)
-                    .keyConditionExpression("exam_id = :exam_id")
-                    .expressionAttributeValues(expressionAttributeValues)
+                    .keyConditionExpression("user_id = :userId")
+                    .expressionAttributeValues(Map.of(":userId", AttributeValue.fromS(userId)))
                     .projectionExpression("exam_question_key");
 
             if (lastEvaluatedKey != null) {
                 builder.exclusiveStartKey(Map.of(
-                        "exam_id", AttributeValue.builder().s(examId).build(),
+                        "user_id", AttributeValue.fromS(userId),
                         "exam_question_key", AttributeValue.builder().n(lastEvaluatedKey).build())
                 );
             }
@@ -189,8 +175,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
                 Integer.parseInt(item.get("question_id").n()),
                 item.get("options").l().stream().map(AttributeValue::m).map(mapToOption()).toList(),
                 item.get("question").s(),
-                Optional.of(item.getOrDefault("s3_image_urls", AttributeValue.builder().build()).l()).orElse(Collections.emptyList()).stream().map(AttributeValue::s).toList(),
-                item.get("source_url").s()
+                Optional.of(item.getOrDefault("s3_image_urls", AttributeValue.builder().build()).l()).orElse(Collections.emptyList()).stream().map(AttributeValue::s).toList()
         );
     }
 

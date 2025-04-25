@@ -7,8 +7,7 @@ public record Question(
         int questionId,
         List<Option> options,
         String question,
-        List<String> s3ImageUrls,
-        String sourceUrl
+        List<String> s3ImageUrls
 ) {
     public record Option(
             boolean isCorrect,

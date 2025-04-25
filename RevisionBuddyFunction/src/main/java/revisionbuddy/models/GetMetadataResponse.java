@@ -3,5 +3,10 @@ package revisionbuddy.models;
 import java.util.List;
 
 public record GetMetadataResponse (
-    List<Integer> questionIds
-) {}
+        List<Metadata> data
+) {
+    public record Metadata (
+            String examId,
+            int count
+    ) {}
+}
