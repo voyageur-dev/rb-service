@@ -124,7 +124,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
             GetQuestionsResponse getQuestionsResponse = new GetQuestionsResponse(
                     resp.items().stream().map(mapToQuestion()).toList(),
-                    Integer.parseInt(resp.lastEvaluatedKey().get("question_id").n())
+                    resp.lastEvaluatedKey().get("question_id").n()
             );
 
             return APIGatewayV2HTTPResponse.builder()
