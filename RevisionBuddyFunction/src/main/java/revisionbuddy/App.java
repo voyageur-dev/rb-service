@@ -3,8 +3,9 @@ package revisionbuddy;
 import java.util.*;
 import java.util.function.Function;
 
+import revisionbuddy.models.GetBookmarksResponse;
 import revisionbuddy.models.GetMetadataResponse;
-import revisionbuddy.models.GetQuestionResponse;
+import revisionbuddy.models.GetQuestionsResponse;
 import revisionbuddy.models.Question;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import com.amazonaws.services.lambda.runtime.Context;
@@ -23,14 +24,17 @@ import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
     private static final String GET_QUESTIONS_PATH = "GET /rb/questions";
+    private static final String GET_BOOKMARKS_PATH = "GET/rb/bookmarks";
     private static final String GET_EXAM_METADATA = "GET /rb/{examId}/metadata";
 
     private final String questionsTableName;
+    private final String bookmarkTableName;
     private final DynamoDbClient client;
     private final Gson gson;
 
     public App() {
         this.questionsTableName = System.getenv("QUESTIONS_TABLE_NAME");
+        this.bookmarkTableName = System.getenv("BOOKMARK_TABLE_NAME");
         this.client = DynamoDbClient.create();
         this.gson = new GsonBuilder().create();
     }
@@ -41,6 +45,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
         return switch (path) {
             case GET_QUESTIONS_PATH -> getQuestions(event);
+            case GET_BOOKMARKS_PATH -> getBookmarks(event);
             case GET_EXAM_METADATA -> getExamMetadata(event);
             default -> APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(404)
@@ -97,38 +102,83 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
         try {
             Map<String, String> queryParams = event.getQueryStringParameters();
             String examId = queryParams.getOrDefault("examId", "aws-dva-c02");
-            int lastEvaluatedKey = Integer.parseInt(queryParams.getOrDefault("lastEvaluatedKey", "0"));
+            int lastEvaluatedKey = Integer.parseInt(queryParams.getOrDefault("lastEvaluatedKey", "-1"));
             int pageSize = Integer.parseInt(queryParams.getOrDefault("pageSize", "10"));
 
-            Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
-            expressionAttributeValues.put(":exam_id", AttributeValue.builder().s(examId).build());
+            Map<String, AttributeValue> expressionAttributeValues = Map.of(":exam_id", AttributeValue.builder().s(examId).build());
 
-            Map<String, AttributeValue> exclusiveStartKey = new HashMap<>();
-            exclusiveStartKey.put("exam_id", AttributeValue.builder().s(examId).build());
-            exclusiveStartKey.put("question_id", AttributeValue.builder().n(String.valueOf(lastEvaluatedKey)).build());
-
-            QueryRequest queryRequest = QueryRequest.builder()
+            QueryRequest.Builder builder = QueryRequest.builder()
                     .tableName(questionsTableName)
                     .keyConditionExpression("exam_id = :exam_id")
                     .expressionAttributeValues(expressionAttributeValues)
-                    .limit(pageSize)
-                    .exclusiveStartKey(exclusiveStartKey)
-                    .build();
+                    .limit(pageSize);
 
-            QueryResponse resp = client.query(queryRequest);
+            if (lastEvaluatedKey > -1) {
+                builder.exclusiveStartKey(Map.of(
+                        "exam_id", AttributeValue.builder().s(examId).build(),
+                        "question_id", AttributeValue.builder().n(String.valueOf(lastEvaluatedKey)).build())
+                );
+            }
 
-            List<Question> questions = resp.items().stream().map(mapToQuestion()).toList();
+            QueryResponse resp = client.query(builder.build());
 
-            GetQuestionResponse getQuestionResponse = new GetQuestionResponse(questions);
+            GetQuestionsResponse getQuestionsResponse = new GetQuestionsResponse(
+                    resp.items().stream().map(mapToQuestion()).toList(),
+                    Integer.parseInt(resp.lastEvaluatedKey().get("question_id").n())
+            );
 
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(200)
-                    .withBody(gson.toJson(getQuestionResponse))
+                    .withBody(gson.toJson(getQuestionsResponse))
                     .build();
         } catch (Exception e) {
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(500)
                     .withBody("Error getting questions: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    private APIGatewayV2HTTPResponse getBookmarks(APIGatewayV2HTTPEvent event) {
+        try {
+            Map<String, String> queryParams = event.getQueryStringParameters();
+            String examId = queryParams.getOrDefault("examId", "aws-dva-c02");
+
+            Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
+            String userId = claims.get("sub");
+
+            String lastEvaluatedKey = queryParams.getOrDefault("lastEvaluatedKey", null);
+
+            Map<String, AttributeValue> expressionAttributeValues = Map.of(":user_id", AttributeValue.builder().s(userId).build());
+
+            QueryRequest.Builder builder = QueryRequest.builder()
+                    .tableName(bookmarkTableName)
+                    .keyConditionExpression("exam_id = :exam_id")
+                    .expressionAttributeValues(expressionAttributeValues)
+                    .projectionExpression("exam_question_key");
+
+            if (lastEvaluatedKey != null) {
+                builder.exclusiveStartKey(Map.of(
+                        "exam_id", AttributeValue.builder().s(examId).build(),
+                        "exam_question_key", AttributeValue.builder().n(lastEvaluatedKey).build())
+                );
+            }
+
+            QueryResponse resp = client.query(builder.build());
+            GetBookmarksResponse getBookmarksResponse = new GetBookmarksResponse(
+                    examId,
+                    resp.items().stream()
+                            .map(item -> Integer.parseInt(item.get("exam_question_key").s().split("#")[1]))
+                            .toList());
+
+            return APIGatewayV2HTTPResponse.builder()
+                    .withStatusCode(200)
+                    .withBody(gson.toJson(getBookmarksResponse))
+                    .build();
+        } catch (Exception e) {
+            return APIGatewayV2HTTPResponse.builder()
+                    .withStatusCode(500)
+                    .withBody("Error getting bookmarks: " + e.getMessage())
                     .build();
         }
     }
