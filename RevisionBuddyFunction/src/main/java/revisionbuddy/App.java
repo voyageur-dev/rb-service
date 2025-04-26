@@ -39,7 +39,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     public App() {
         this.questionsTableName = System.getenv("QUESTIONS_TABLE_NAME");
-        this.bookmarkTableName = System.getenv("BOOKMARK_TABLE_NAME");
+        this.bookmarkTableName = System.getenv("BOOKMARKS_TABLE_NAME");
         this.examIds = List.of(System.getenv("EXAM_IDS").split(","));
         this.client = DynamoDbClient.create();
         this.gson = new GsonBuilder().create();
