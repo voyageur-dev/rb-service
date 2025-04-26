@@ -180,7 +180,6 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     private APIGatewayV2HTTPResponse createBookmarks(APIGatewayV2HTTPEvent event) {
         try {
-
             String body = event.getBody();
             JsonObject jsonBody = gson.fromJson(body, JsonObject.class);
             String examId = jsonBody.get("examId").getAsString();
@@ -190,7 +189,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             String userId = claims.get("sub");
 
             Map<String, AttributeValue> item = new HashMap<>();
-            item.put("user_dd", AttributeValue.fromS(userId));
+            item.put("user_id", AttributeValue.fromS(userId));
             item.put("exam_question_key", AttributeValue.fromS(MessageFormat.format("{0}#{1}", examId, questionId)));
             item.put("created_at", AttributeValue.fromS(Instant.now().toString()));
 
