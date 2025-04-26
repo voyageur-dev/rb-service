@@ -1,15 +1,12 @@
 {
   "version": "2.0",
-  "routeKey": "GET /rb/{examId}/metadata",
+  "routeKey": "GET /rb/metadata",
   "rawPath": "",
   "rawQueryString": "",
-  "pathParameters": {
-    "examId": "aws-dva-c02"
-  },
   "requestContext": {
     "http": {
       "method": "GET",
-      "path": "/rb/{examId}/metadata",
+      "path": "/rb/metadata",
       "protocol": "HTTP/1.1"
     }
   },
