@@ -26,7 +26,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     private static final String GET_QUESTIONS_PATH = "GET /rb/questions";
     private static final String GET_BOOKMARKS_PATH = "GET/rb/bookmarks";
-    private static final String GET_EXAM_METADATA = "GET /rb/{examId}/metadata";
+    private static final String GET_EXAM_METADATA = "GET /rb/metadata";
 
     private static final String POST_BOOKMARKS_PATH = "POST /rb/bookmarks";
 
