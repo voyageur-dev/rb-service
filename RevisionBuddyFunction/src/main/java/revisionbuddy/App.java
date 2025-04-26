@@ -28,7 +28,8 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private static final String GET_BOOKMARKS_PATH = "GET/rb/bookmarks";
     private static final String GET_EXAM_METADATA = "GET /rb/metadata";
 
-    private static final String POST_BOOKMARKS_PATH = "POST /rb/bookmarks";
+    private static final String POST_BOOKMARK_PATH = "POST /rb/bookmarks";
+    private static final String DELETE_BOOKMARK_PATH = "DELETE /rb/bookmarks/{examId}/{questionId}";
 
     private final String questionsTableName;
     private final String bookmarkTableName;
@@ -51,9 +52,10 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
         return switch (path) {
             case GET_QUESTIONS_PATH -> getQuestions(event);
-            case GET_BOOKMARKS_PATH -> getBookmarks(event);
             case GET_EXAM_METADATA -> getExamMetadata(event);
-            case POST_BOOKMARKS_PATH -> createBookmarks(event);
+            case GET_BOOKMARKS_PATH -> getBookmarks(event);
+            case POST_BOOKMARK_PATH -> createBookmark(event);
+            case DELETE_BOOKMARK_PATH -> deleteBookmark(event);
             default -> APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(404)
                     .withBody("Path Not Found")
@@ -178,7 +180,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
         }
     }
 
-    private APIGatewayV2HTTPResponse createBookmarks(APIGatewayV2HTTPEvent event) {
+    private APIGatewayV2HTTPResponse createBookmark(APIGatewayV2HTTPEvent event) {
         try {
             String body = event.getBody();
             JsonObject jsonBody = gson.fromJson(body, JsonObject.class);
@@ -188,10 +190,11 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
             String userId = claims.get("sub");
 
-            Map<String, AttributeValue> item = new HashMap<>();
-            item.put("user_id", AttributeValue.fromS(userId));
-            item.put("exam_question_key", AttributeValue.fromS(MessageFormat.format("{0}#{1}", examId, questionId)));
-            item.put("created_at", AttributeValue.fromS(Instant.now().toString()));
+            Map<String, AttributeValue> item = Map.of(
+                    "user_id", AttributeValue.fromS(userId),
+                    "exam_question_key", AttributeValue.fromS(MessageFormat.format("{0}#{1}", examId, questionId)),
+                    "created_at", AttributeValue.fromS(Instant.now().toString())
+            );
 
             PutItemRequest request = PutItemRequest.builder()
                     .tableName(bookmarkTableName)
@@ -202,6 +205,40 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(201)
+                    .build();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+
+            return APIGatewayV2HTTPResponse.builder()
+                    .withStatusCode(500)
+                    .withBody("Error creating bookmarks")
+                    .build();
+        }
+    }
+
+    private APIGatewayV2HTTPResponse deleteBookmark(APIGatewayV2HTTPEvent event) {
+        try {
+            Map<String, String> pathParams = event.getPathParameters();
+            String examId = pathParams.get("examId");
+            String questionId = pathParams.get("questionId");
+
+            Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
+            String userId = claims.get("sub");
+
+            Map<String, AttributeValue> key = Map.of(
+                    "user_id", AttributeValue.fromS(userId),
+                    "exam_question_key", AttributeValue.fromS(MessageFormat.format("{0}#{1}", examId, questionId))
+            );
+
+            DeleteItemRequest request = DeleteItemRequest.builder()
+                   .tableName(bookmarkTableName)
+                   .key(key)
+                   .build();
+
+            client.deleteItem(request);
+
+            return APIGatewayV2HTTPResponse.builder()
+                    .withStatusCode(200)
                     .build();
         } catch (Exception e) {
             System.out.println(e.getMessage());
