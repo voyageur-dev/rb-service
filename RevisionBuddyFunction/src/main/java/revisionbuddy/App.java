@@ -25,7 +25,7 @@ import software.amazon.awssdk.services.dynamodb.model.*;
 public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
     private static final String GET_QUESTIONS_PATH = "GET /rb/questions";
-    private static final String GET_BOOKMARKS_PATH = "GET/rb/bookmarks";
+    private static final String GET_BOOKMARKS_PATH = "GET /rb/bookmarks";
     private static final String GET_EXAM_METADATA = "GET /rb/metadata";
 
     private static final String POST_BOOKMARK_PATH = "POST /rb/bookmarks";
@@ -148,17 +148,28 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private APIGatewayV2HTTPResponse getBookmarks(APIGatewayV2HTTPEvent event) {
         try {
             Map<String, String> queryParams = event.getQueryStringParameters();
-            String examId = queryParams.getOrDefault("examId", "aws-dva-c02");
+            String examId = queryParams.getOrDefault("examId", null);
 
             Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
             String userId = claims.get("sub");
 
             String lastEvaluatedKey = queryParams.getOrDefault("lastEvaluatedKey", null);
 
+            String keyCondition = "user_id = :userId";
+            if (examId != null) {
+                keyCondition += " AND beginsWith(exam_question_key, :examId)";
+            }
+
+            Map<String, AttributeValue> expressionValues = new HashMap<>();
+            expressionValues.put(":userId", AttributeValue.fromS(userId));
+            if (examId != null) {
+                expressionValues.put(":examId", AttributeValue.fromS(examId));
+            }
+
             QueryRequest.Builder builder = QueryRequest.builder()
                     .tableName(bookmarkTableName)
-                    .keyConditionExpression("user_id = :userId")
-                    .expressionAttributeValues(Map.of(":userId", AttributeValue.fromS(userId)))
+                    .keyConditionExpression(keyCondition)
+                    .expressionAttributeValues(expressionValues)
                     .projectionExpression("exam_question_key");
 
             if (lastEvaluatedKey != null) {
