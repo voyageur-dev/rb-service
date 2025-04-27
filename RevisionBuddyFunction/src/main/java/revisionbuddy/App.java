@@ -147,7 +147,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private APIGatewayV2HTTPResponse getBookmarks(APIGatewayV2HTTPEvent event) {
         try {
             Map<String, String> queryParams = event.getQueryStringParameters();
-            String examId = queryParams.getOrDefault("examId", null);
+            String examId = Optional.of(queryParams).orElse(Map.of()).getOrDefault("examId", null);
 
             Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
             String userId = claims.get("sub");
