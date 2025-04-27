@@ -67,8 +67,15 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
         try {
             Map<String, String> pathParams = event.getPathParameters();
 
-            List<GetMetadataResponse.Metadata> metadata = new ArrayList<>();
+            List<GetMetadataResponse.Metadata> metadata = List.of(
+                    new GetMetadataResponse.Metadata("aws-clf-c02", 528),
+                    new GetMetadataResponse.Metadata("aws-dea-c01", 179),
+                    new GetMetadataResponse.Metadata("aws-saa-c03", 738),
+                    new GetMetadataResponse.Metadata("aws-sap-c02", 338),
+                    new GetMetadataResponse.Metadata("aws-dva-c02", 415)
+            );
 
+            /*
             for (String examId : examIds) {
                 QueryRequest queryRequest = QueryRequest.builder()
                         .tableName(questionsTableName)
@@ -80,6 +87,8 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
                 QueryResponse response = client.query(queryRequest);
                 metadata.add(new GetMetadataResponse.Metadata(examId, response.count()));
             }
+
+             */
 
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(200)
