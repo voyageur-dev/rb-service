@@ -156,7 +156,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
             String keyCondition = "user_id = :userId";
             if (examId != null) {
-                keyCondition += " AND beginsWith(exam_question_key, :examId)";
+                keyCondition += " AND begins_with(exam_question_key, :examId)";
             }
 
             Map<String, AttributeValue> expressionValues = new HashMap<>();
@@ -174,7 +174,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             if (lastEvaluatedKey != null) {
                 builder.exclusiveStartKey(Map.of(
                         "user_id", AttributeValue.fromS(userId),
-                        "exam_question_key", AttributeValue.builder().n(lastEvaluatedKey).build())
+                        "exam_question_key", AttributeValue.builder().s(lastEvaluatedKey).build())
                 );
             }
 
