@@ -1,8 +1,8 @@
 package revisionbuddy.models;
 
 import java.util.List;
+import java.util.Map;
 
 public record GetBookmarksResponse(
-   String examId,
-   List<Integer> questionIds
+   Map<String, List<Integer>> bookmarks
 ) {}

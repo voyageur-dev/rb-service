@@ -32,7 +32,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     private static final String DELETE_BOOKMARK_PATH = "DELETE /rb/bookmarks/{examId}/{questionId}";
 
     private final String questionsTableName;
-    private final String bookmarkTableName;
+    private final String bookmarksTableName;
     private final List<String> examIds;
 
     private final DynamoDbClient client;
@@ -40,7 +40,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     public App() {
         this.questionsTableName = System.getenv("QUESTIONS_TABLE_NAME");
-        this.bookmarkTableName = System.getenv("BOOKMARKS_TABLE_NAME");
+        this.bookmarksTableName = System.getenv("BOOKMARKS_TABLE_NAME");
         this.examIds = List.of(System.getenv("EXAM_IDS").split(","));
         this.client = DynamoDbClient.create();
         this.gson = new GsonBuilder().create();
@@ -146,8 +146,8 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     private APIGatewayV2HTTPResponse getBookmarks(APIGatewayV2HTTPEvent event) {
         try {
-            Map<String, String> queryParams = event.getQueryStringParameters();
-            String examId = Optional.of(queryParams).orElse(Map.of()).getOrDefault("examId", null);
+            Map<String, String> queryParams = Optional.ofNullable(event.getQueryStringParameters()).orElse(Map.of());
+            String examId = queryParams.getOrDefault("examId", null);
 
             Map<String, String> claims = event.getRequestContext().getAuthorizer().getJwt().getClaims();
             String userId = claims.get("sub");
@@ -166,7 +166,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             }
 
             QueryRequest.Builder builder = QueryRequest.builder()
-                    .tableName(bookmarkTableName)
+                    .tableName(bookmarksTableName)
                     .keyConditionExpression(keyCondition)
                     .expressionAttributeValues(expressionValues)
                     .projectionExpression("exam_question_key");
@@ -179,11 +179,14 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             }
 
             QueryResponse resp = client.query(builder.build());
-            GetBookmarksResponse getBookmarksResponse = new GetBookmarksResponse(
-                    examId,
-                    resp.items().stream()
-                            .map(item -> Integer.parseInt(item.get("exam_question_key").s().split("#")[1]))
-                            .toList());
+
+            Map<String, List<Integer>> bookmarks = new HashMap<>();
+            for (Map<String, AttributeValue> item : resp.items()) {
+                String[] parts = item.get("exam_question_key").s().split("#");
+                bookmarks.computeIfAbsent(parts[0], k -> new ArrayList<>()).add(Integer.parseInt(parts[1]));
+            }
+
+            GetBookmarksResponse getBookmarksResponse = new GetBookmarksResponse(bookmarks);
 
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(200)
@@ -216,7 +219,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             );
 
             PutItemRequest request = PutItemRequest.builder()
-                    .tableName(bookmarkTableName)
+                    .tableName(bookmarksTableName)
                     .item(item)
                     .build();
 
@@ -250,7 +253,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
             );
 
             DeleteItemRequest request = DeleteItemRequest.builder()
-                   .tableName(bookmarkTableName)
+                   .tableName(bookmarksTableName)
                    .key(key)
                    .build();
 
