@@ -33,7 +33,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     private final String questionsTableName;
     private final String bookmarksTableName;
-    private final List<String> examIds;
+    private final String metadataTableName;
 
     private final DynamoDbClient client;
     private final Gson gson;
@@ -41,7 +41,7 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
     public App() {
         this.questionsTableName = System.getenv("QUESTIONS_TABLE_NAME");
         this.bookmarksTableName = System.getenv("BOOKMARKS_TABLE_NAME");
-        this.examIds = List.of(System.getenv("EXAM_IDS").split(","));
+        this.metadataTableName = System.getenv("METADATA_TABLE_NAME");
         this.client = DynamoDbClient.create();
         this.gson = new GsonBuilder().create();
     }
@@ -65,30 +65,16 @@ public class App implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HT
 
     private APIGatewayV2HTTPResponse getExamMetadata(APIGatewayV2HTTPEvent event) {
         try {
-            Map<String, String> pathParams = event.getPathParameters();
+            List<GetMetadataResponse.Metadata> metadata = new ArrayList<>();
 
-            List<GetMetadataResponse.Metadata> metadata = List.of(
-                    new GetMetadataResponse.Metadata("aws-clf-c02", 528),
-                    new GetMetadataResponse.Metadata("aws-dea-c01", 179),
-                    new GetMetadataResponse.Metadata("aws-saa-c03", 738),
-                    new GetMetadataResponse.Metadata("aws-sap-c02", 338),
-                    new GetMetadataResponse.Metadata("aws-dva-c02", 415)
-            );
+            ScanRequest scanRequest = ScanRequest.builder()
+                    .tableName(metadataTableName)
+                    .build();
 
-            /*
-            for (String examId : examIds) {
-                QueryRequest queryRequest = QueryRequest.builder()
-                        .tableName(questionsTableName)
-                        .keyConditionExpression("exam_id" + " = :examId")
-                        .expressionAttributeValues(Map.of(":examId", AttributeValue.fromS(examId)))
-                        .select(Select.COUNT)
-                        .build();
-
-                QueryResponse response = client.query(queryRequest);
-                metadata.add(new GetMetadataResponse.Metadata(examId, response.count()));
+            ScanResponse scanResponse = client.scan(scanRequest);
+            for (Map<String, AttributeValue> item : scanResponse.items()) {
+                metadata.add(new GetMetadataResponse.Metadata(item.get("exam_id").s(), Integer.parseInt(item.get("count").n())));
             }
-
-             */
 
             return APIGatewayV2HTTPResponse.builder()
                     .withStatusCode(200)
